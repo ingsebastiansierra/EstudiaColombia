@@ -4,7 +4,7 @@ export const APP_VERSION = '1.0.0';
 
 // Colors (complementing Tailwind config)
 export const COLORS = {
-  primary: '#3b82f6',
+  primary: '#E61876',
   secondary: '#22c55e',
   accent: '#eab308',
   error: '#ef4444',

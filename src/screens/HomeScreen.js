@@ -49,9 +49,10 @@ export default function HomeScreen({ navigation }) {
           </View>
           <TouchableOpacity onPress={() => navigation.navigate(SCREEN_NAMES.PROFILE)}>
             <Avatar.Text 
-              size={50} 
+              size={45} 
               label={user?.name?.charAt(0) || 'U'} 
-              style={{ backgroundColor: COLORS.primary }}
+              style={{ backgroundColor: COLORS.primary, marginLeft:-30, }}
+              labelStyle={{ fontSize: 25, fontWeight: 'bold' }}
             />
           </TouchableOpacity>
         </View>
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
     paddingVertical: 20,
   },
   greeting: {
