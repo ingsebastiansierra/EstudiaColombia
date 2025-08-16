@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
+    marginBottom: 4,
   },
   actionSubtitle: {
     fontSize: 14,
