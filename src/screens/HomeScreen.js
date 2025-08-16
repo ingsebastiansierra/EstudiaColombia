@@ -1,34 +1,68 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Avatar } from 'react-native-paper';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
 import { COLORS, SCREEN_NAMES } from '../constants';
+import ICFESScoreForm from '../components/ICFESScoreForm';
+import ICFESScoresService from '../services/icfesService';
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuthStore();
+  const [showScoreForm, setShowScoreForm] = useState(false);
+  const [userScores, setUserScores] = useState(null);
+
+  // Cargar puntajes al iniciar
+  useEffect(() => {
+    const loadScores = async () => {
+      if (user?.id) {
+        try {
+          const scores = await ICFESScoresService.getUserScores(user.id);
+          setUserScores(scores);
+        } catch (error) {
+          console.error('Error cargando puntajes ICFES:', error);
+        }
+      }
+    };
+    loadScores();
+  }, [user]);
+
+  // Manejar guardado de puntajes
+  const handleSaveScores = async (scores) => {
+    if (!user?.id) return false;
+    
+    try {
+      const updatedScores = await ICFESScoresService.saveScores(user.id, scores);
+      setUserScores(updatedScores);
+      return true;
+    } catch (error) {
+      console.error('Error guardando puntajes ICFES:', error);
+      return false;
+    }
+  };
 
   const quickActions = [
     {
+      title: 'Resultados ICFES',
+      subtitle: 'Actualiza tus puntajes',
+      icon: 'school',
+      onPress: () => setShowScoreForm(true),
+      color: COLORS.primary,
+    },
+    {
       title: 'Buscar Universidades',
       subtitle: 'Encuentra tu universidad ideal',
-      icon: '🏛️',
+      icon: 'search',
       screen: SCREEN_NAMES.UNIVERSITIES,
-      color: COLORS.primary,
+      color: COLORS.secondary,
     },
     {
       title: 'Simulador ICFES',
       subtitle: 'Practica para tu examen',
-      icon: '📊',
+      icon: 'assessment',
       screen: SCREEN_NAMES.SIMULATOR,
-      color: COLORS.secondary,
-    },
-    {
-      title: 'Entrenador Adaptativo',
-      subtitle: 'Mejora tus debilidades',
-      icon: '🎯',
-      screen: SCREEN_NAMES.TRAINER,
-      color: COLORS.accent,
+      color: COLORS.accent
     },
   ];
 
@@ -51,57 +85,80 @@ export default function HomeScreen({ navigation }) {
             <Avatar.Text 
               size={45} 
               label={user?.name?.charAt(0) || 'U'} 
-              style={{ backgroundColor: COLORS.primary, marginLeft:-30, }}
+              style={{ backgroundColor: COLORS.primary, marginLeft: -30 }}
               labelStyle={{ fontSize: 25, fontWeight: 'bold' }}
             />
           </TouchableOpacity>
         </View>
 
-        {/* Progress Card */}
-        <Card style={styles.progressCard}>
+        {/* Tarjeta de Puntajes ICFES */}
+        <Card style={[styles.progressCard, { backgroundColor: COLORS.primary }]}>
           <Card.Content>
-            <Text style={styles.progressTitle}>Tu Progreso</Text>
-            <View style={styles.progressStats}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>12</Text>
-                <Text style={styles.statLabel}>Simulacros</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>85%</Text>
-                <Text style={styles.statLabel}>Promedio</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>5</Text>
-                <Text style={styles.statLabel}>Universidades</Text>
-              </View>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressTitle}>Tus Puntajes ICFES</Text>
+              <TouchableOpacity onPress={() => setShowScoreForm(true)}>
+                <MaterialIcons name="edit" size={20} color="white" />
+              </TouchableOpacity>
             </View>
+            
+            {userScores ? (
+              <View style={styles.scoresContainer}>
+                <View style={styles.scoreItem}>
+                  <Text style={styles.scoreValue}>
+                    {Object.values(userScores).reduce((a, b) => a + (parseInt(b) || 0), 0)}
+                  </Text>
+                  <Text style={styles.scoreLabel}>Puntos Totales</Text>
+                </View>
+                <View style={styles.scoresGrid}>
+                  {Object.entries(userScores).map(([key, value]) => (
+                    <View key={key} style={styles.scoreBadge}>
+                      <Text style={styles.scoreBadgeValue}>{value || '--'}</Text>
+                      <Text style={styles.scoreBadgeLabel}>
+                        {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ').substring(0, 3)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.noScoresContainer}>
+                <Text style={styles.noScoresText}>No has registrado tus puntajes ICFES</Text>
+                <Button 
+                  mode="contained" 
+                  onPress={() => setShowScoreForm(true)}
+                  style={styles.addScoresButton}
+                  labelStyle={{ color: COLORS.primary }}
+                >
+                  Agregar Puntajes
+                </Button>
+              </View>
+            )}
           </Card.Content>
         </Card>
 
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-          {quickActions.map((action, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.actionCard}
-              onPress={() => navigation.navigate(action.screen)}
-            >
-              <View style={styles.actionContent}>
-                <View style={[styles.actionIcon, { backgroundColor: action.color + '20' }]}>
-                  <Text style={styles.actionEmoji}>{action.icon}</Text>
+          <View style={styles.actionsContainer}>
+            {quickActions.map((action, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.actionCard, { backgroundColor: `${action.color}20` }]}
+                onPress={action.onPress || (() => navigation.navigate(action.screen))}
+              >
+                <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
+                  <MaterialIcons name={action.icon} size={24} color="white" />
                 </View>
                 <View style={styles.actionText}>
                   <Text style={styles.actionTitle}>{action.title}</Text>
                   <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
                 </View>
-                <Text style={styles.actionArrow}>→</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {/* Recent Activity */}
+        {/* Actividad Reciente */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Actividad Reciente</Text>
           {recentActivity.map((item, index) => (
@@ -120,10 +177,10 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
 
-        {/* Call to Action */}
+        {/* Llamado a la acción */}
         <Card style={styles.ctaCard}>
           <Card.Content>
-            <Text style={styles.ctaTitle}>🚀 ¡Impulsa tu futuro!</Text>
+            <Text style={styles.ctaTitle}>¡Impulsa tu futuro!</Text>
             <Text style={styles.ctaText}>
               Descubre las mejores universidades para tu perfil y entrena para obtener el puntaje que necesitas.
             </Text>
@@ -138,6 +195,14 @@ export default function HomeScreen({ navigation }) {
           </Card.Content>
         </Card>
       </ScrollView>
+
+      {/* Formulario de Puntajes ICFES */}
+      <ICFESScoreForm
+        visible={showScoreForm}
+        onClose={() => setShowScoreForm(false)}
+        initialScores={userScores || {}}
+        onSubmit={handleSaveScores}
+      />
     </SafeAreaView>
   );
 }
@@ -154,8 +219,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 30,
-    paddingVertical: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 16,
   },
   greeting: {
     fontSize: 24,
@@ -163,73 +229,131 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.textSecondary,
     marginTop: 4,
   },
   progressCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: COLORS.primary,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   progressTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: 'white',
-    marginBottom: 16,
   },
-  progressStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
+  scoresContainer: {
     alignItems: 'center',
   },
-  statNumber: {
-    fontSize: 24,
+  scoreItem: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  scoreValue: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: 'white'
+  },
+  scoreLabel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+
+  scoresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+
+    width: '100%',
+  },
+  scoreBadge: {
+    width: '30%',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+
+    padding: 12,
+    alignItems: 'center',
+
+    marginBottom: 12,
+  },
+  scoreBadgeValue: {
+
+    fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
+
+    marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 14,
+  scoreBadgeLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+  },
+  noScoresContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+
+  noScoresText: {
     color: 'white',
-    opacity: 0.9,
+    marginBottom: 16,
+    textAlign: 'center',
   },
+  addScoresButton: {
+    backgroundColor: 'white',
+
+    borderRadius: 8,
+  },
+
+
+
   section: {
-    paddingHorizontal: 20,
+
     marginBottom: 24,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+
+    fontWeight: '600',
     color: COLORS.text,
     marginBottom: 16,
   },
+  actionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+
+
+  },
+
+
   actionCard: {
-    backgroundColor: 'white',
+    width: '100%',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    backgroundColor: 'white',
+    elevation: 2
   },
-  actionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+
   actionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-  },
-  actionEmoji: {
-    fontSize: 24,
+
+    marginBottom: 12,
   },
   actionText: {
     flex: 1,
@@ -242,12 +366,7 @@ const styles = StyleSheet.create({
   },
   actionSubtitle: {
     fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  actionArrow: {
-    fontSize: 18,
-    color: COLORS.textSecondary,
+    color: COLORS.textSecondary
   },
   activityItem: {
     flexDirection: 'row',
@@ -274,9 +393,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   ctaCard: {
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginBottom: 40,
     backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    elevation: 2,
   },
   ctaTitle: {
     fontSize: 18,
