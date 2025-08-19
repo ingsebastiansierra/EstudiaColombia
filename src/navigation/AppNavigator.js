@@ -16,6 +16,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import UniversitiesScreen from '../screens/UniversitiesScreen';
 import SimulatorScreen from '../screens/SimulatorScreen';
 import TrainerScreen from '../screens/TrainerScreen';
+import UPTCPonderadoScreen from '../screens/UPTCPonderadoScreen';
 
 import { SCREEN_NAMES } from '../constants';
 
@@ -41,7 +42,7 @@ function AuthStack() {
 }
 
 // Main Tab Navigator
-function MainTabs() {
+function TabNavigator() {
   return (
     <Tab.Navigator
       initialRouteName={SCREEN_NAMES.HOME}
@@ -114,6 +115,26 @@ function MainTabs() {
         }}
       />
     </Tab.Navigator>
+  );
+}
+
+function MainTabs() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen 
+        name={SCREEN_NAMES.UPTC_PONDERADO} 
+        component={UPTCPonderadoScreen} 
+        options={{
+          title: 'Simulador UPTC',
+          headerBackTitle: 'Atrás'
+        }} 
+      />
+    </Stack.Navigator>
   );
 }
 

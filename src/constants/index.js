@@ -37,6 +37,7 @@ export const SCREEN_NAMES = {
   // University Details
   UNIVERSITY_DETAIL: 'UniversityDetail',
   CAREER_DETAIL: 'CareerDetail',
+  UPTC_PONDERADO: 'UPTCPonderado',
   
   // ICFES
   ICFES_RESULTS: 'ICFESResults',
