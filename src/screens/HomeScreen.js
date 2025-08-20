@@ -267,30 +267,24 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 4,
   },
-
   scoresGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-
     width: '100%',
   },
   scoreBadge: {
     width: '30%',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 8,
-
     padding: 12,
     alignItems: 'center',
-
     marginBottom: 12,
   },
   scoreBadgeValue: {
-
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
-
     marginBottom: 4,
   },
   scoreBadgeLabel: {
@@ -302,7 +296,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
   },
-
   noScoresText: {
     color: 'white',
     marginBottom: 16,
@@ -310,20 +303,14 @@ const styles = StyleSheet.create({
   },
   addScoresButton: {
     backgroundColor: 'white',
-
     borderRadius: 8,
   },
-
-
-
   section: {
-
     marginBottom: 24,
     paddingHorizontal: 16,
   },
   sectionTitle: {
     fontSize: 18,
-
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: 16,
@@ -332,11 +319,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-
-
   },
-
-
   actionCard: {
     width: '100%',
     borderRadius: 12,
@@ -345,14 +328,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     elevation: 2
   },
-
   actionIcon: {
     width: 48,
     height: 48,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-
     marginBottom: 12,
   },
   actionText: {

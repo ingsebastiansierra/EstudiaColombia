@@ -32,18 +32,15 @@ const ICFESScoreForm = ({ visible, onClose, initialScores = {}, onSubmit }) => {
   }, [visible, initialScores]);
 
   const handleScoreChange = (key, value) => {
-    // Solo permitir números y borrar
     if (value === '' || /^\d+$/.test(value)) {
       const numValue = parseInt(value, 10);
       
-      // Validar que el valor esté entre 0 y 100
       if (value === '' || (numValue >= 0 && numValue <= 100)) {
         setScores(prev => ({
           ...prev,
           [key]: value
         }));
         
-        // Limpiar el error si existe
         if (errors[key]) {
           setErrors(prev => ({
             ...prev,
@@ -80,7 +77,6 @@ const ICFESScoreForm = ({ visible, onClose, initialScores = {}, onSubmit }) => {
     
     setIsSubmitting(true);
     try {
-      // Convertir los valores a números
       const scoresToSubmit = {};
       Object.keys(scores).forEach(key => {
         scoresToSubmit[key] = parseInt(scores[key], 10);
