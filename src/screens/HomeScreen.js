@@ -1,31 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Avatar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import { createClient } from '@supabase/supabase-js';
 import { useAuthStore } from '../store/authStore';
 import { COLORS, SCREEN_NAMES } from '../constants';
 import ICFESScoreForm from '../components/ICFESScoreForm';
 import ICFESScoresService from '../services/icfesService';
+import ViableCareersModal from '../components/ViableCareersModal';
+
+// Reemplaza estos valores con tu URL y tu clave pública de Supabase
+const supabaseUrl = 'https://mxywbszjymzegermyhej.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eXdic3pqeW16ZWdlcm15aGVqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzYzMTM5NiwiZXhwIjoyMDY5MjA3Mzk2fQ.AVOBrJr5S4wSEhERyHjTOoRPtF-RjurBNlMs5KrAnGc';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuthStore();
   const [showScoreForm, setShowScoreForm] = useState(false);
   const [userScores, setUserScores] = useState(null);
+  const [cutoffScores, setCutoffScores] = useState([]);
+  const [ponderations, setPonderations] = useState([]);
+  const [showViableCareersModal, setShowViableCareersModal] = useState(false);
+  const [viableCareers, setViableCareers] = useState([]);
 
-  // Cargar puntajes al iniciar
+  // Cargar puntajes de usuario, ponderaciones y puntajes de corte al iniciar
   useEffect(() => {
-    const loadScores = async () => {
+    const loadData = async () => {
       if (user?.id) {
         try {
+          // Cargar puntajes del usuario
           const scores = await ICFESScoresService.getUserScores(user.id);
           setUserScores(scores);
+
+          // Cargar ponderaciones desde Supabase
+          const { data: ponderationData, error: ponderationError } = await supabase
+            .from('ponderados_2025_1')
+            .select('*');
+
+          if (ponderationError) {
+            console.error('Error cargando ponderaciones:', ponderationError.message);
+          } else {
+            console.log('Datos de ponderaciones cargados:', ponderationData);
+            setPonderations(ponderationData);
+          }
+
+          // Cargar puntajes de corte desde Supabase
+          const { data: cutoffData, error: cutoffError } = await supabase
+            .from('puntajes_corte')
+            .select('*');
+
+          if (cutoffError) {
+            console.error('Error cargando puntajes de corte:', cutoffError.message);
+          } else {
+            console.log('Datos de puntajes de corte cargados:', cutoffData);
+            setCutoffScores(cutoffData);
+          }
+
         } catch (error) {
-          console.error('Error cargando puntajes ICFES:', error);
+          console.error('Error cargando datos:', error);
         }
       }
     };
-    loadScores();
+    loadData();
   }, [user]);
 
   // Manejar guardado de puntajes
@@ -39,6 +76,70 @@ export default function HomeScreen({ navigation }) {
     } catch (error) {
       console.error('Error guardando puntajes ICFES:', error);
       return false;
+    }
+  };
+  
+  const handleUPTCAdmissionCheck = () => {
+    if (!userScores) {
+      Alert.alert('Puntajes no encontrados', 'Por favor, registra tus puntajes ICFES para realizar esta simulación.');
+      return;
+    }
+  
+    const viable = [];
+  
+    const scoreMap = {
+      lecturaCritica: 'LECTURA CRITICA',
+      cienciasNaturales: 'CIENCIAS NATURALES',
+      sociales: 'SOCIALES Y CIDADANAS',
+      matematicas: 'MATEMATICAS',
+      ingles: 'INGLES',
+    };
+  
+    cutoffScores.forEach(dbCareer => {
+      // Usamos el campo CODIGO para encontrar la ponderación correspondiente
+      const ponderationData = ponderations.find(
+        p => p.CODIGO === dbCareer.CODIGO
+      );
+  
+      if (ponderationData) {
+        let total = 0;
+        let isValid = true;
+  
+        for (const [userKey, dbKey] of Object.entries(scoreMap)) {
+          const score = parseFloat(userScores[userKey]);
+          const ponderation = parseFloat(ponderationData[dbKey]);
+  
+          if (isNaN(score) || isNaN(ponderation)) {
+            console.warn(`Puntaje o ponderación no válida para ${userKey} en el programa con código ${dbCareer.CODIGO}. Se saltará la verificación de esta carrera.`);
+            isValid = false;
+            break;
+          }
+          total += (score * (ponderation / 100));
+        }
+  
+        if (isValid) {
+          const finalScore = Math.round(total * 100) / 100;
+          const cutoffScoreUltimo = parseFloat(dbCareer.ULTIMO.replace(',', '.'));
+          const cutoffScorePrimero = parseFloat(dbCareer.PRIMERO.replace(',', '.'));
+  
+          if (finalScore >= cutoffScoreUltimo) {
+            viable.push({
+              name: dbCareer.PROGRAMA,
+              campus: dbCareer.SEDE,
+              jornada: dbCareer.JORNADA,
+              finalScore,
+              cutoffRange: `${cutoffScoreUltimo} - ${cutoffScorePrimero}`,
+            });
+          }
+        }
+      }
+    });
+  
+    if (viable.length > 0) {
+      setViableCareers(viable);
+      setShowViableCareersModal(true);
+    } else {
+      Alert.alert('No se encontraron carreras viables', 'No hay carreras en las que seas admitido con tus puntajes actuales.');
     }
   };
 
@@ -55,13 +156,23 @@ export default function HomeScreen({ navigation }) {
       subtitle: 'Encuentra tu universidad ideal',
       icon: 'search',
       screen: SCREEN_NAMES.UNIVERSITIES,
+      onPress: () => navigation.navigate(SCREEN_NAMES.UNIVERSITIES),
       color: COLORS.secondary,
+    },
+    // ... otras acciones
+    {
+      title: 'Carreras Activas Viables',
+      subtitle: 'Verifica tu admisión en UPTC',
+      icon: 'check-circle',
+      onPress: userScores ? handleUPTCAdmissionCheck : () => Alert.alert('Puntajes no encontrados', 'Por favor, registra tus puntajes ICFES para realizar esta simulación.'),
+      color: userScores ? COLORS.secondary : COLORS.textSecondary,
     },
     {
       title: 'Simulador ICFES',
       subtitle: 'Practica para tu examen',
       icon: 'assessment',
       screen: SCREEN_NAMES.SIMULATOR,
+      onPress: () => navigation.navigate(SCREEN_NAMES.SIMULATOR),
       color: COLORS.accent
     },
   ];
@@ -144,7 +255,7 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 key={index}
                 style={[styles.actionCard, { backgroundColor: `${action.color}20` }]}
-                onPress={action.onPress || (() => navigation.navigate(action.screen))}
+                onPress={action.onPress}
               >
                 <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
                   <MaterialIcons name={action.icon} size={24} color="white" />
@@ -196,12 +307,17 @@ export default function HomeScreen({ navigation }) {
         </Card>
       </ScrollView>
 
-      {/* Formulario de Puntajes ICFES */}
+      {/* Formularios y Modales */}
       <ICFESScoreForm
         visible={showScoreForm}
         onClose={() => setShowScoreForm(false)}
         initialScores={userScores || {}}
         onSubmit={handleSaveScores}
+      />
+      <ViableCareersModal
+        visible={showViableCareersModal}
+        onClose={() => setShowViableCareersModal(false)}
+        viableCareers={viableCareers}
       />
     </SafeAreaView>
   );
@@ -393,6 +509,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   ctaButton: {
-    paddingVertical: 4,
-  },
+    paddingVertical: 4
+  }
 });
