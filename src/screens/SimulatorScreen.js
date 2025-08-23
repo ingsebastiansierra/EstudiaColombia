@@ -26,6 +26,7 @@ export default function SimulatorScreen({ navigation }) {
       icon: '🎯',
       color: COLORS.primary,
       premium: false,
+      action: () => {},
     },
     {
       title: 'Simulacro Rápido',
@@ -36,16 +37,18 @@ export default function SimulatorScreen({ navigation }) {
       icon: '⚡',
       color: COLORS.secondary,
       premium: false,
+      action: () => {},
     },
     {
       title: 'Simulacro por Área',
       subtitle: 'Enfócate en un área específica',
-      duration: '45min',
-      questions: 50,
+      duration: 'Variable',
+      questions: 'Variable',
       difficulty: 'Variable',
       icon: '🎲',
       color: COLORS.accent,
       premium: false,
+      action: () => navigation.navigate('AreasGenerales'),
     },
     {
       title: 'Simulacro Adaptativo',
@@ -56,6 +59,7 @@ export default function SimulatorScreen({ navigation }) {
       icon: '🤖',
       color: '#9333ea',
       premium: true,
+      action: () => {},
     },
   ];
 
@@ -78,7 +82,7 @@ export default function SimulatorScreen({ navigation }) {
               <Text style={styles.cardTitle}>{option.title}</Text>
               {option.premium && (
                 <Chip style={styles.premiumChip} textStyle={styles.premiumText}>
-                  Premium
+                  <Text style={styles.premiumText}>Premium</Text>
                 </Chip>
               )}
             </View>
@@ -104,10 +108,12 @@ export default function SimulatorScreen({ navigation }) {
         <Button
           mode="contained"
           style={[styles.startButton, { backgroundColor: option.color }]}
-          onPress={() => {}}
+          onPress={option.action}
           disabled={option.premium}
         >
-          {option.premium ? 'Requiere Premium' : 'Comenzar Simulacro'}
+          <Text style={{ color: 'white', fontWeight: 'bold' }}>
+            {option.premium ? 'Requiere Premium' : 'Comenzar Simulacro'}
+          </Text>
         </Button>
       </Card.Content>
     </Card>
@@ -428,5 +434,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 2,
-  },
+  }
 });

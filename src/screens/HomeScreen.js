@@ -1,5 +1,6 @@
+// src/screens/HomeScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Avatar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -8,7 +9,8 @@ import { useAuthStore } from '../store/authStore';
 import { COLORS, SCREEN_NAMES } from '../constants';
 import ICFESScoreForm from '../components/ICFESScoreForm';
 import ICFESScoresService from '../services/icfesService';
-import ViableCareersModal from '../components/ViableCareersModal';
+// Importa el nuevo componente
+import CarrerasViables from '../components/CarrerasViables'; 
 
 // Reemplaza estos valores con tu URL y tu clave pública de Supabase
 const supabaseUrl = 'https://mxywbszjymzegermyhej.supabase.co';
@@ -17,129 +19,41 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuthStore();
+  const [loading, setLoading] = useState(true);
   const [showScoreForm, setShowScoreForm] = useState(false);
   const [userScores, setUserScores] = useState(null);
-  const [cutoffScores, setCutoffScores] = useState([]);
-  const [ponderations, setPonderations] = useState([]);
-  const [showViableCareersModal, setShowViableCareersModal] = useState(false);
-  const [viableCareers, setViableCareers] = useState([]);
 
-  // Cargar puntajes de usuario, ponderaciones y puntajes de corte al iniciar
+  // Cargar los puntajes del usuario al iniciar
   useEffect(() => {
-    const loadData = async () => {
+    const loadScores = async () => {
       if (user?.id) {
+        setLoading(true);
         try {
-          // Cargar puntajes del usuario
           const scores = await ICFESScoresService.getUserScores(user.id);
           setUserScores(scores);
-
-          // Cargar ponderaciones desde Supabase
-          const { data: ponderationData, error: ponderationError } = await supabase
-            .from('ponderados_2025_1')
-            .select('*');
-
-          if (ponderationError) {
-            console.error('Error cargando ponderaciones:', ponderationError.message);
-          } else {
-            console.log('Datos de ponderaciones cargados:', ponderationData);
-            setPonderations(ponderationData);
-          }
-
-          // Cargar puntajes de corte desde Supabase
-          const { data: cutoffData, error: cutoffError } = await supabase
-            .from('puntajes_corte')
-            .select('*');
-
-          if (cutoffError) {
-            console.error('Error cargando puntajes de corte:', cutoffError.message);
-          } else {
-            console.log('Datos de puntajes de corte cargados:', cutoffData);
-            setCutoffScores(cutoffData);
-          }
-
         } catch (error) {
-          console.error('Error cargando datos:', error);
+          console.error('Error cargando puntajes:', error);
+          Alert.alert('Error', 'Ocurrió un error inesperado al cargar tus puntajes.');
+        } finally {
+          setLoading(false);
         }
       }
     };
-    loadData();
+    loadScores();
   }, [user]);
 
   // Manejar guardado de puntajes
   const handleSaveScores = async (scores) => {
     if (!user?.id) return false;
-    
+
     try {
       const updatedScores = await ICFESScoresService.saveScores(user.id, scores);
       setUserScores(updatedScores);
       return true;
     } catch (error) {
       console.error('Error guardando puntajes ICFES:', error);
+      Alert.alert('Error', 'No se pudieron guardar tus puntajes.');
       return false;
-    }
-  };
-  
-  const handleUPTCAdmissionCheck = () => {
-    if (!userScores) {
-      Alert.alert('Puntajes no encontrados', 'Por favor, registra tus puntajes ICFES para realizar esta simulación.');
-      return;
-    }
-  
-    const viable = [];
-  
-    const scoreMap = {
-      lecturaCritica: 'LECTURA CRITICA',
-      cienciasNaturales: 'CIENCIAS NATURALES',
-      sociales: 'SOCIALES Y CIDADANAS',
-      matematicas: 'MATEMATICAS',
-      ingles: 'INGLES',
-    };
-  
-    cutoffScores.forEach(dbCareer => {
-      // Usamos el campo CODIGO para encontrar la ponderación correspondiente
-      const ponderationData = ponderations.find(
-        p => p.CODIGO === dbCareer.CODIGO
-      );
-  
-      if (ponderationData) {
-        let total = 0;
-        let isValid = true;
-  
-        for (const [userKey, dbKey] of Object.entries(scoreMap)) {
-          const score = parseFloat(userScores[userKey]);
-          const ponderation = parseFloat(ponderationData[dbKey]);
-  
-          if (isNaN(score) || isNaN(ponderation)) {
-            console.warn(`Puntaje o ponderación no válida para ${userKey} en el programa con código ${dbCareer.CODIGO}. Se saltará la verificación de esta carrera.`);
-            isValid = false;
-            break;
-          }
-          total += (score * (ponderation / 100));
-        }
-  
-        if (isValid) {
-          const finalScore = Math.round(total * 100) / 100;
-          const cutoffScoreUltimo = parseFloat(dbCareer.ULTIMO.replace(',', '.'));
-          const cutoffScorePrimero = parseFloat(dbCareer.PRIMERO.replace(',', '.'));
-  
-          if (finalScore >= cutoffScoreUltimo) {
-            viable.push({
-              name: dbCareer.PROGRAMA,
-              campus: dbCareer.SEDE,
-              jornada: dbCareer.JORNADA,
-              finalScore,
-              cutoffRange: `${cutoffScoreUltimo} - ${cutoffScorePrimero}`,
-            });
-          }
-        }
-      }
-    });
-  
-    if (viable.length > 0) {
-      setViableCareers(viable);
-      setShowViableCareersModal(true);
-    } else {
-      Alert.alert('No se encontraron carreras viables', 'No hay carreras en las que seas admitido con tus puntajes actuales.');
     }
   };
 
@@ -158,14 +72,6 @@ export default function HomeScreen({ navigation }) {
       screen: SCREEN_NAMES.UNIVERSITIES,
       onPress: () => navigation.navigate(SCREEN_NAMES.UNIVERSITIES),
       color: COLORS.secondary,
-    },
-    // ... otras acciones
-    {
-      title: 'Carreras Activas Viables',
-      subtitle: 'Verifica tu admisión en UPTC',
-      icon: 'check-circle',
-      onPress: userScores ? handleUPTCAdmissionCheck : () => Alert.alert('Puntajes no encontrados', 'Por favor, registra tus puntajes ICFES para realizar esta simulación.'),
-      color: userScores ? COLORS.secondary : COLORS.textSecondary,
     },
     {
       title: 'Simulador ICFES',
@@ -202,109 +108,122 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Tarjeta de Puntajes ICFES */}
-        <Card style={[styles.progressCard, { backgroundColor: COLORS.primary }]}>
-          <Card.Content>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressTitle}>Tus Puntajes ICFES</Text>
-              <TouchableOpacity onPress={() => setShowScoreForm(true)}>
-                <MaterialIcons name="edit" size={20} color="white" />
-              </TouchableOpacity>
-            </View>
-            
-            {userScores ? (
-              <View style={styles.scoresContainer}>
-                <View style={styles.scoreItem}>
-                  <Text style={styles.scoreValue}>
-                    {Object.values(userScores).reduce((a, b) => a + (parseInt(b) || 0), 0)}
-                  </Text>
-                  <Text style={styles.scoreLabel}>Puntos Totales</Text>
-                </View>
-                <View style={styles.scoresGrid}>
-                  {Object.entries(userScores).map(([key, value]) => (
-                    <View key={key} style={styles.scoreBadge}>
-                      <Text style={styles.scoreBadgeValue}>{value || '--'}</Text>
-                      <Text style={styles.scoreBadgeLabel}>
-                        {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ').substring(0, 3)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : (
-              <View style={styles.noScoresContainer}>
-                <Text style={styles.noScoresText}>No has registrado tus puntajes ICFES</Text>
-                <Button 
-                  mode="contained" 
-                  onPress={() => setShowScoreForm(true)}
-                  style={styles.addScoresButton}
-                  labelStyle={{ color: COLORS.primary }}
-                >
-                  Agregar Puntajes
-                </Button>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-          <View style={styles.actionsContainer}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[styles.actionCard, { backgroundColor: `${action.color}20` }]}
-                onPress={action.onPress}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
-                  <MaterialIcons name={action.icon} size={24} color="white" />
-                </View>
-                <View style={styles.actionText}>
-                  <Text style={styles.actionTitle}>{action.title}</Text>
-                  <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={{ marginTop: 10, color: COLORS.text }}>Cargando datos...</Text>
           </View>
-        </View>
+        ) : (
+          <>
+            {/* Tarjeta de Puntajes ICFES */}
+            <Card style={[styles.progressCard, { backgroundColor: COLORS.primary }]}>
+              <Card.Content>
+                <View style={styles.progressHeader}>
+                  <Text style={styles.progressTitle}>Tus Puntajes ICFES</Text>
+                  <TouchableOpacity onPress={() => setShowScoreForm(true)}>
+                    <MaterialIcons name="edit" size={20} color="white" />
+                  </TouchableOpacity>
+                </View>
 
-        {/* Actividad Reciente */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Actividad Reciente</Text>
-          {recentActivity.map((item, index) => (
-            <View key={index} style={styles.activityItem}>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>{item.title}</Text>
-                <Text style={styles.activityDate}>{item.date}</Text>
+                {userScores ? (
+                  <View style={styles.scoresContainer}>
+                    <View style={styles.scoreItem}>
+                      <Text style={styles.scoreValue}>
+                        {Object.values(userScores).reduce((a, b) => a + (parseInt(b) || 0), 0)}
+                      </Text>
+                      <Text style={styles.scoreLabel}>Puntos Totales</Text>
+                    </View>
+                    <View style={styles.scoresGrid}>
+                      {Object.entries(userScores).map(([key, value]) => (
+                        <View key={key} style={styles.scoreBadge}>
+                          <Text style={styles.scoreBadgeValue}>{value || '--'}</Text>
+                          <Text style={styles.scoreBadgeLabel}>
+                            {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ').substring(0, 3)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.noScoresContainer}>
+                    <Text style={styles.noScoresText}>No has registrado tus puntajes ICFES</Text>
+                    <Button 
+                      mode="contained" 
+                      onPress={() => setShowScoreForm(true)}
+                      style={styles.addScoresButton}
+                      labelStyle={{ color: COLORS.primary }}
+                    >
+                      Agregar Puntajes
+                    </Button>
+                  </View>
+                )}
+              </Card.Content>
+            </Card>
+
+            {/* Acciones Rápidas */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+              <View style={styles.actionsContainer}>
+                {/* Reemplazamos el botón original por el nuevo componente */}
+                <CarrerasViables userScores={userScores} />
+                {quickActions.map((action, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.actionCard, { backgroundColor: `${action.color}20` }]}
+                    onPress={action.onPress}
+                  >
+                    <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
+                      <MaterialIcons name={action.icon} size={24} color="white" />
+                    </View>
+                    <View style={styles.actionText}>
+                      <Text style={styles.actionTitle}>{action.title}</Text>
+                      <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <Text style={[
-                styles.activityScore,
-                { color: item.score ? COLORS.success : COLORS.primary }
-              ]}>
-                {item.score || item.action}
-              </Text>
             </View>
-          ))}
-        </View>
 
-        {/* Llamado a la acción */}
-        <Card style={styles.ctaCard}>
-          <Card.Content>
-            <Text style={styles.ctaTitle}>¡Impulsa tu futuro!</Text>
-            <Text style={styles.ctaText}>
-              Descubre las mejores universidades para tu perfil y entrena para obtener el puntaje que necesitas.
-            </Text>
-            <Button
-              mode="contained"
-              style={styles.ctaButton}
-              buttonColor={COLORS.primary}
-              onPress={() => navigation.navigate(SCREEN_NAMES.UNIVERSITIES)}
-            >
-              Explorar Universidades
-            </Button>
-          </Card.Content>
-        </Card>
+            {/* ... (el resto del código de HomeScreen es el mismo) */}
+            
+            {/* Actividad Reciente */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Actividad Reciente</Text>
+              {recentActivity.map((item, index) => (
+                <View key={index} style={styles.activityItem}>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityTitle}>{item.title}</Text>
+                    <Text style={styles.activityDate}>{item.date}</Text>
+                  </View>
+                  <Text style={[
+                    styles.activityScore,
+                    { color: item.score ? COLORS.success : COLORS.primary }
+                  ]}>
+                    {item.score || item.action}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Llamado a la acción */}
+            <Card style={styles.ctaCard}>
+              <Card.Content>
+                <Text style={styles.ctaTitle}>¡Impulsa tu futuro!</Text>
+                <Text style={styles.ctaText}>
+                  Descubre las mejores universidades para tu perfil y entrena para obtener el puntaje que necesitas.
+                </Text>
+                <Button
+                  mode="contained"
+                  style={styles.ctaButton}
+                  buttonColor={COLORS.primary}
+                  onPress={() => navigation.navigate(SCREEN_NAMES.UNIVERSITIES)}
+                >
+                  Explorar Universidades
+                </Button>
+              </Card.Content>
+            </Card>
+          </>
+        )}
       </ScrollView>
 
       {/* Formularios y Modales */}
@@ -313,11 +232,6 @@ export default function HomeScreen({ navigation }) {
         onClose={() => setShowScoreForm(false)}
         initialScores={userScores || {}}
         onSubmit={handleSaveScores}
-      />
-      <ViableCareersModal
-        visible={showViableCareersModal}
-        onClose={() => setShowViableCareersModal(false)}
-        viableCareers={viableCareers}
       />
     </SafeAreaView>
   );
@@ -510,5 +424,11 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     paddingVertical: 4
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
   }
 });

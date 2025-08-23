@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
 
-// Import screens (will be created next)
+// Import screens
 import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -17,6 +17,8 @@ import UniversitiesScreen from '../screens/UniversitiesScreen';
 import SimulatorScreen from '../screens/SimulatorScreen';
 import TrainerScreen from '../screens/TrainerScreen';
 import UPTCPonderadoScreen from '../screens/UPTCPonderadoScreen';
+import AreasGeneralesScreen from '../screens/AreasGenerales';
+import LecturaCriticaModulo from '../screens/LecturaCritica/LecturaCriticaModulo';
 
 import { SCREEN_NAMES } from '../constants';
 
@@ -133,6 +135,24 @@ function MainTabs() {
           title: 'Simulador UPTC',
           headerBackTitle: 'Atrás'
         }} 
+      />
+      <Stack.Screen 
+        name={SCREEN_NAMES.AREAS_GENERALES} 
+        component={AreasGeneralesScreen} 
+        options={{
+          title: 'Simulacro por Área',
+          headerBackTitle: 'Atrás',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name={SCREEN_NAMES.LECTURA_CRITICA_MODULO}
+        component={LecturaCriticaModulo}
+        options={{
+          title: 'Lectura Crítica',
+          headerBackTitle: 'Áreas',
+          headerShown: true,
+        }}
       />
     </Stack.Navigator>
   );
