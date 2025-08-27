@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, ProgressBar, Avatar } from 'react-native-paper';
 import { COLORS, ICFES_AREAS } from '../constants';
+import { supabase } from '../DataBase/supabaseClient';
 
 export default function TrainerScreen({ navigation }) {
   const [selectedLevel, setSelectedLevel] = useState('beginner');
+  const [areaProgress, setAreaProgress] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const levels = [
     { key: 'beginner', label: 'Principiante', color: COLORS.success || '#10b981' },
@@ -13,67 +17,103 @@ export default function TrainerScreen({ navigation }) {
     { key: 'advanced', label: 'Avanzado', color: COLORS.error || '#ef4444' },
   ];
 
-  const areaProgress = [
-    {
-      area: 'Matemáticas',
-      icon: '🔢',
-      progress: 0.75,
-      level: 'Intermedio',
-      weakPoints: ['Geometría', 'Estadística'],
-      nextSession: 'Álgebra básica',
-      color: COLORS.primary,
-    },
-    {
-      area: 'Lectura Crítica',
-      icon: '📖',
-      progress: 0.60,
-      level: 'Principiante',
-      weakPoints: ['Comprensión', 'Análisis'],
-      nextSession: 'Técnicas de lectura',
-      color: COLORS.secondary,
-    },
-    {
-      area: 'Sociales',
-      icon: '🌍',
-      progress: 0.85,
-      level: 'Avanzado',
-      weakPoints: ['Historia contemporánea'],
-      nextSession: 'Geografía económica',
-      color: COLORS.accent,
-    },
-    {
-      area: 'Ciencias',
-      icon: '🧪',
-      progress: 0.45,
-      level: 'Principiante',
-      weakPoints: ['Química', 'Física', 'Biología'],
-      nextSession: 'Conceptos básicos',
-      color: '#9333ea',
-    },
-    {
-      area: 'Inglés',
-      icon: '🇺🇸',
-      progress: 0.90,
-      level: 'Avanzado',
-      weakPoints: ['Vocabulario técnico'],
-      nextSession: 'Reading comprehension',
-      color: '#f59e0b',
-    },
-  ];
+  useEffect(() => {
+    async function fetchIcfesScores() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('user_icfes_scores')
+          .select('*');
 
-  const dailyGoals = [
-    { task: 'Completar 10 preguntas de matemáticas', completed: true },
-    { task: 'Revisar errores del último simulacro', completed: true },
-    { task: 'Estudiar 15 minutos de inglés', completed: false },
-    { task: 'Hacer ejercicios de lectura crítica', completed: false },
-  ];
+        if (error) {
+          throw error;
+        }
 
-  const achievements = [
-    { title: 'Primera semana', icon: '🏆', unlocked: true },
-    { title: 'Racha de 7 días', icon: '🔥', unlocked: true },
-    { title: 'Maestro en matemáticas', icon: '🧮', unlocked: false },
-    { title: 'Lector experto', icon: '📚', unlocked: false },
-  ];
+        if (data && data.length > 0) {
+          const latestScores = data[0];
+          const transformedData = [
+            {
+              area: 'Lectura Crítica',
+              icon: '📖',
+              score: latestScores.lectura_critica,
+              progress: latestScores.lectura_critica / 100,
+              color: COLORS.secondary,
+            },
+            {
+              area: 'Matemáticas',
+              icon: '🔢',
+              score: latestScores.matematicas,
+              progress: latestScores.matematicas / 100,
+              color: COLORS.primary,
+            },
+            {
+              area: 'Sociales',
+              icon: '🌍',
+              score: latestScores.sociales_ciudadanas,
+              progress: latestScores.sociales_ciudadanas / 100,
+              color: COLORS.accent,
+            },
+            {
+              area: 'Ciencias Naturales',
+              icon: '🧪',
+              score: latestScores.ciencias_naturales,
+              progress: latestScores.ciencias_naturales / 100,
+              color: '#9333ea',
+            },
+            {
+              area: 'Inglés',
+              icon: '🇺🇸',
+              score: latestScores.ingles,
+              progress: latestScores.ingles / 100,
+              color: '#f59e0b',
+            },
+          ].map(item => ({
+            ...item,
+            level: getLevelByScore(item.score),
+            weakPoints: getWeakPoints(item.area),
+            nextSession: getNextSession(item.area),
+          }));
+
+          setAreaProgress(transformedData);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error.message);
+        setError("No se pudieron cargar los datos. Intenta de nuevo.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchIcfesScores();
+  }, []);
+
+  const getLevelByScore = (score) => {
+    if (score < 60) return 'Principiante';
+    if (score >= 60 && score <= 75) return 'Intermedio';
+    return 'Avanzado';
+  };
+
+  const getWeakPoints = (area) => {
+    switch (area) {
+      case 'Matemáticas': return ['Geometría', 'Estadística'];
+      case 'Lectura Crítica': return ['Comprensión', 'Análisis'];
+      case 'Sociales': return ['Historia contemporánea'];
+      case 'Ciencias Naturales': return ['Química', 'Física', 'Biología'];
+      case 'Inglés': return ['Vocabulario técnico'];
+      default: return [];
+    }
+  };
+
+  const getNextSession = (area) => {
+    switch (area) {
+      case 'Matemáticas': return 'Álgebra básica';
+      case 'Lectura Crítica': return 'Técnicas de lectura';
+      case 'Sociales': return 'Geografía económica';
+      case 'Ciencias Naturales': return 'Conceptos básicos';
+      case 'Inglés': return 'Reading comprehension';
+      default: return '';
+    }
+  };
 
   const renderAreaCard = (area, index) => (
     <Card key={index} style={styles.areaCard}>
@@ -114,7 +154,14 @@ export default function TrainerScreen({ navigation }) {
         <Button
           mode="contained"
           style={[styles.trainButton, { backgroundColor: area.color }]}
-          onPress={() => {}}
+          onPress={() => {
+            if (area.area === 'Lectura Crítica') {
+              navigation.navigate('LecturaCriticaModulo');
+            } else {
+              // Puedes agregar aquí la lógica para otros módulos
+              console.log(`Entrenar: ${area.area}`);
+            }
+          }}
         >
           Entrenar Ahora
         </Button>
@@ -125,32 +172,14 @@ export default function TrainerScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Entrenador Adaptativo</Text>
           <Text style={styles.subtitle}>Mejora tus debilidades con IA</Text>
         </View>
 
-        {/* Daily Goals */}
         <Card style={styles.goalsCard}>
           <Card.Content>
             <Text style={styles.goalsTitle}>🎯 Metas del Día</Text>
-            {dailyGoals.map((goal, index) => (
-              <View key={index} style={styles.goalItem}>
-                <View style={[
-                  styles.goalCheckbox,
-                  goal.completed && styles.goalCompleted
-                ]}>
-                  {goal.completed && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={[
-                  styles.goalText,
-                  goal.completed && styles.goalTextCompleted
-                ]}>
-                  {goal.task}
-                </Text>
-              </View>
-            ))}
             <View style={styles.goalsProgress}>
               <Text style={styles.goalsProgressText}>
                 2 de 4 completadas
@@ -164,7 +193,6 @@ export default function TrainerScreen({ navigation }) {
           </Card.Content>
         </Card>
 
-        {/* Level Selection */}
         <View style={styles.levelSection}>
           <Text style={styles.sectionTitle}>Nivel de Dificultad</Text>
           <View style={styles.levelContainer}>
@@ -189,39 +217,39 @@ export default function TrainerScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Areas Progress */}
         <View style={styles.areasSection}>
           <Text style={styles.sectionTitle}>Progreso por Área</Text>
-          {areaProgress.map(renderAreaCard)}
+          {loading && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />}
+          {error && <Text style={styles.errorText}>{error}</Text>}
+          {!loading && !error && areaProgress.length > 0 ? (
+            areaProgress.map(renderAreaCard)
+          ) : (
+            <Text style={styles.noDataText}>No hay datos de progreso disponibles.</Text>
+          )}
         </View>
 
-        {/* Achievements */}
         <View style={styles.achievementsSection}>
           <Text style={styles.sectionTitle}>🏆 Logros</Text>
           <View style={styles.achievementsGrid}>
-            {achievements.map((achievement, index) => (
-              <View key={index} style={[
-                styles.achievementItem,
-                !achievement.unlocked && styles.achievementLocked
-              ]}>
-                <Text style={[
-                  styles.achievementIcon,
-                  !achievement.unlocked && styles.achievementIconLocked
-                ]}>
-                  {achievement.icon}
-                </Text>
-                <Text style={[
-                  styles.achievementTitle,
-                  !achievement.unlocked && styles.achievementTitleLocked
-                ]}>
-                  {achievement.title}
-                </Text>
-              </View>
-            ))}
+            <View style={[styles.achievementItem, { opacity: 1 }]}>
+              <Text style={styles.achievementIcon}>🏆</Text>
+              <Text style={styles.achievementTitle}>Primera semana</Text>
+            </View>
+            <View style={[styles.achievementItem, { opacity: 1 }]}>
+              <Text style={styles.achievementIcon}>🔥</Text>
+              <Text style={styles.achievementTitle}>Racha de 7 días</Text>
+            </View>
+            <View style={[styles.achievementItem, { opacity: 0.5 }]}>
+              <Text style={styles.achievementIcon}>🧮</Text>
+              <Text style={styles.achievementTitle}>Maestro en matemáticas</Text>
+            </View>
+            <View style={[styles.achievementItem, { opacity: 0.5 }]}>
+              <Text style={styles.achievementIcon}>📚</Text>
+              <Text style={styles.achievementTitle}>Lector experto</Text>
+            </View>
           </View>
         </View>
 
-        {/* Study Streak */}
         <Card style={styles.streakCard}>
           <Card.Content>
             <View style={styles.streakContent}>
@@ -277,39 +305,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: 16,
-  },
-  goalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  goalCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.textSecondary,
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  goalCompleted: {
-    backgroundColor: COLORS.success,
-    borderColor: COLORS.success,
-  },
-  checkmark: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  goalText: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.text,
-  },
-  goalTextCompleted: {
-    textDecorationLine: 'line-through',
-    color: COLORS.textSecondary,
   },
   goalsProgress: {
     marginTop: 16,
@@ -434,24 +429,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     elevation: 2,
   },
-  achievementLocked: {
-    opacity: 0.5,
-  },
   achievementIcon: {
     fontSize: 32,
     marginBottom: 8,
-  },
-  achievementIconLocked: {
-    opacity: 0.3,
   },
   achievementTitle: {
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.text,
     textAlign: 'center',
-  },
-  achievementTitleLocked: {
-    color: COLORS.textSecondary,
   },
   streakCard: {
     marginHorizontal: 20,
@@ -482,4 +468,14 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 4,
   },
+  noDataText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: COLORS.textSecondary,
+  },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: COLORS.error,
+  }
 });

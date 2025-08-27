@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Chip } from 'react-native-paper';
 import { COLORS, ICFES_AREAS } from '../constants';
@@ -10,9 +10,9 @@ export default function AreasGenerales({ navigation }) {
             key: ICFES_AREAS.LECTURA_CRITICA,
             title: 'Lectura Crítica',
             subtitle: 'Analiza textos y argumentos',
-            duration: 'Variable',
-            questions: 'Variable',
-            difficulty: 'Variable',
+            duration: '18 minutos', // 5 preguntas * 90s
+            questions: '12',
+            difficulty: 'Media',
             icon: '📖',
             color: COLORS.accent,
             premium: false,
@@ -22,49 +22,49 @@ export default function AreasGenerales({ navigation }) {
             key: ICFES_AREAS.MATEMATICAS,
             title: 'Matemáticas',
             subtitle: 'Razonamiento y problemas',
-            duration: 'Variable',
-            questions: 'Variable',
-            difficulty: 'Variable',
+            duration: 'Próximamente',
+            questions: 'Próximamente',
+            difficulty: 'Próximamente',
             icon: '🔢',
             color: '#FF6347',
-            premium: true, // Deshabilitado temporalmente
-            action: () => { /* Implementar lógica para Matemáticas */ },
+            premium: true,
+            action: () => { },
         },
         {
             key: ICFES_AREAS.SOCIALES,
             title: 'Sociales y Ciudadanas',
             subtitle: 'Historia, geografía y ciudadanía',
-            duration: 'Variable',
-            questions: 'Variable',
-            difficulty: 'Variable',
+            duration: 'Próximamente',
+            questions: 'Próximamente',
+            difficulty: 'Próximamente',
             icon: '🌍',
             color: '#1E90FF',
-            premium: true, // Deshabilitado temporalmente
-            action: () => { /* Implementar lógica para Sociales */ },
+            premium: true,
+            action: () => { },
         },
         {
             key: ICFES_AREAS.CIENCIAS_NATURALES,
             title: 'Ciencias Naturales',
             subtitle: 'Biología, Química y Física',
-            duration: 'Variable',
-            questions: 'Variable',
-            difficulty: 'Variable',
+            duration: 'Próximamente',
+            questions: 'Próximamente',
+            difficulty: 'Próximamente',
             icon: '🧪',
             color: '#32CD32',
-            premium: true, // Deshabilitado temporalmente
-            action: () => { /* Implementar lógica para Ciencias */ },
+            premium: true,
+            action: () => { },
         },
         {
             key: ICFES_AREAS.INGLES,
             title: 'Inglés',
             subtitle: 'Comprensión lectora en Inglés',
-            duration: 'Variable',
-            questions: 'Variable',
-            difficulty: 'Variable',
+            duration: 'Próximamente',
+            questions: 'Próximamente',
+            difficulty: 'Próximamente',
             icon: '🇺🇸',
             color: '#8A2BE2',
-            premium: true, // Deshabilitado temporalmente
-            action: () => { /* Implementar lógica para Inglés */ },
+            premium: true,
+            action: () => { },
         },
     ];
 

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button } from 'react-native-paper';
 import { supabase } from '../../DataBase/supabaseClient';
 import { SCREEN_NAMES, ICFES_AREAS, COLORS } from '../../constants';
+import ModalInstructor from '../../components/Modals/ModalInstructor';
 
 export default function LecturaCriticaModulo({ navigation }) {
   const [questions, setQuestions] = useState([]);
@@ -13,10 +14,38 @@ export default function LecturaCriticaModulo({ navigation }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [score, setScore] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [timeLeft, setTimeLeft] = useState(90);
+  const [expandedPassage, setExpandedPassage] = useState(false);
+  const [showInstructionsModal, setShowInstructionsModal] = useState(true);
 
-  // ======================
-  // Cargar preguntas
-  // ======================
+  // 👇 VERIFICAR ESTA SECCIÓN: La data debe estar definida y no vacía
+  const instructionsData = [
+    {
+      icon: '⏳',
+      title: 'Tiempo Límite',
+      body: 'Tendrás 90 segundos para responder cada pregunta. ¡Maneja tu tiempo sabiamente!',
+    },
+    {
+      icon: '🧠',
+      title: 'Habilidades a Evaluar',
+      body: 'Esta prueba mide tu capacidad para interpretar textos, inferir información y evaluar la validez de argumentos.',
+    },
+    {
+      icon: '📝',
+      title: 'Número de Preguntas',
+      body: 'La prueba consta de 12 preguntas variadas para evaluar tus conocimientos.',
+    },
+    {
+      icon: '✅',
+      title: 'Reglas Importantes',
+      body: 'Responde cada pregunta de forma individual. Una vez que pases a la siguiente, no podrás regresar.',
+    },
+  ];
+
+  const handleCloseModal = () => {
+    setShowInstructionsModal(false);
+  };
+
   const fetchQuestions = async () => {
     setLoading(true);
     setError(null);
@@ -26,6 +55,7 @@ export default function LecturaCriticaModulo({ navigation }) {
         .select(`
           id,
           text,
+          competency_id,
           difficulty,
           passages(id, type, content, difficulty),
           options(
@@ -38,15 +68,21 @@ export default function LecturaCriticaModulo({ navigation }) {
               is_correct_explanation
             )
           )
-        `)
-        .eq('competency_id', 1);
-
+        `);
+  
       if (error) {
         console.error('Error fetching questions:', error);
         setError('No se pudieron cargar las preguntas. Intenta de nuevo.');
       } else {
-        setQuestions(data);
-        setQuestionStartTime(Date.now()); // reset timer
+        const competencias = [1, 2, 3];
+        const preguntasPorCompetencia = competencias.flatMap(c => {
+          return data.filter(q => q.competency_id === c).slice(0, 5);
+        });
+        const shuffled = preguntasPorCompetencia.sort(() => Math.random() - 0.5);
+  
+        setQuestions(shuffled);
+        setQuestionStartTime(Date.now());
+        setTimeLeft(90);
       }
     } catch (err) {
       console.error('Error inesperado:', err);
@@ -55,14 +91,28 @@ export default function LecturaCriticaModulo({ navigation }) {
       setLoading(false);
     }
   };
-
+  
   useEffect(() => {
     fetchQuestions();
   }, []);
 
-  // ======================
-  // Guardar respuesta
-  // ======================
+  useEffect(() => {
+    if (loading || questions.length === 0 || showInstructionsModal) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === 1) {
+          clearInterval(timer);
+          handleNextQuestion(true);
+          return 90;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentQuestionIndex, loading, questions, showInstructionsModal]);
+
   const saveUserResponse = async (questionId, optionId, isCorrect) => {
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -82,7 +132,7 @@ export default function LecturaCriticaModulo({ navigation }) {
 
       const { error } = await supabase.from('user_responses').insert([
         {
-          user_id: user.id, // 👈 este debe ser UUID válido
+          user_id: user.id,
           question_id: questionId,
           selected_option_id: optionId,
           time_taken_seconds: timeTaken,
@@ -99,37 +149,36 @@ export default function LecturaCriticaModulo({ navigation }) {
     }
   };
 
-  // ======================
-  // Pasar a la siguiente
-  // ======================
-  const handleNextQuestion = async () => {
+  const handleNextQuestion = async (autoSkip = false) => {
     const currentQuestion = questions[currentQuestionIndex];
     const selected = currentQuestion.options.find(opt => opt.id === selectedOption);
 
-    if (!selected) return;
+    if (!autoSkip && !selected) return;
 
-    await saveUserResponse(currentQuestion.id, selectedOption, selected.is_correct);
-
-    if (selected.is_correct) {
-      setScore(prev => prev + 1);
+    if (selected) {
+      await saveUserResponse(currentQuestion.id, selectedOption, selected.is_correct);
+      if (selected.is_correct) {
+        setScore(prev => prev + 1);
+      }
+    } else if (autoSkip) {
+      await saveUserResponse(currentQuestion.id, null, false);
     }
 
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setCurrentQuestionIndex(prev => prev + 1);
       setSelectedOption(null);
       setQuestionStartTime(Date.now());
+      setTimeLeft(90);
+      setExpandedPassage(false);
     } else {
       Alert.alert(
         "¡Simulacro finalizado!",
-        `Tu puntaje: ${score + (selected.is_correct ? 1 : 0)} / ${questions.length}`,
+        `Tu puntaje: ${score + (selected?.is_correct ? 1 : 0)} / ${questions.length}`,
         [{ text: "OK", onPress: () => navigation.goBack() }]
       );
     }
   };
 
-  // ======================
-  // Render
-  // ======================
   if (loading) {
     return (
       <View style={styles.centeredContainer}>
@@ -160,35 +209,54 @@ export default function LecturaCriticaModulo({ navigation }) {
 
   const currentQuestion = questions[currentQuestionIndex];
   const passage = currentQuestion.passages;
+  const charLimit = 180;
+  const passageText = passage?.content || "";
+  const isLong = passageText.length > charLimit;
+  const displayText = expandedPassage ? passageText : passageText.slice(0, charLimit);
 
   return (
     <SafeAreaView style={styles.container}>
+      <ModalInstructor
+        isVisible={showInstructionsModal}
+        onClose={handleCloseModal}
+        title="Instrucciones para la Prueba"
+        instructions={instructionsData} // Asegúrate de pasar el array aquí
+      />
+
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.questionCounter}>
             Pregunta {currentQuestionIndex + 1} de {questions.length}
           </Text>
           <Text style={styles.areaTitle}>Lectura Crítica</Text>
+          <Text style={styles.timer}>⏱️ {timeLeft}s</Text>
         </View>
 
-        {/* Pasaje */}
         {passage && (
           <Card style={styles.passageCard}>
             <Card.Content>
               <Text style={styles.passageTitle}>Lectura:</Text>
-              <Text style={styles.passageText}>{passage.content}</Text>
+              <Text style={styles.passageText}>
+                {displayText}
+                {!expandedPassage && isLong ? "..." : ""}
+              </Text>
+              {isLong && (
+                <TouchableOpacity onPress={() => setExpandedPassage(!expandedPassage)}>
+                  <Text style={styles.verMas}>
+                    {expandedPassage ? "Ver menos ▲" : "Ver más ▼"}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </Card.Content>
           </Card>
         )}
 
-        {/* Pregunta */}
         <Card style={styles.questionCard}>
           <Card.Content>
             <Text style={styles.questionText}>{currentQuestion.text}</Text>
           </Card.Content>
         </Card>
 
-        {/* Opciones */}
         <View style={styles.optionsContainer}>
           {currentQuestion.options.map((option, index) => (
             <TouchableOpacity
@@ -210,7 +278,7 @@ export default function LecturaCriticaModulo({ navigation }) {
         <Button
           mode="contained"
           style={styles.nextButton}
-          onPress={handleNextQuestion}
+          onPress={() => handleNextQuestion(false)}
           disabled={selectedOption === null}
         >
           Siguiente Pregunta
@@ -229,9 +297,11 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   questionCounter: { fontSize: 14, color: COLORS.textSecondary },
   areaTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.text, marginTop: 5 },
+  timer: { fontSize: 16, fontWeight: 'bold', color: COLORS.primary, marginTop: 5 },
   passageCard: { marginHorizontal: 15, marginTop: 20, marginBottom: 10, elevation: 2 },
   passageTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },
   passageText: { fontSize: 15, lineHeight: 22, color: COLORS.textSecondary },
+  verMas: { fontSize: 14, color: COLORS.primary, marginTop: 5, fontWeight: '500' },
   questionCard: { marginHorizontal: 15, marginTop: 10, elevation: 2 },
   questionText: { fontSize: 16, fontWeight: '500', lineHeight: 24, color: COLORS.text },
   optionsContainer: { marginHorizontal: 15, marginTop: 20, marginBottom: 80 },
